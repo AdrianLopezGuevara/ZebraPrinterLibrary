@@ -6,10 +6,11 @@ using System.Net.Sockets;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using ZebraPrinterLibrary.Interfaces;
 
 namespace ZebraPrinterLibrary.Services
 {
-    public class ZebraPrinterService : IDisposable
+    public class ZebraPrinterService : IDisposable, IZebraPrinterService
     {
         private Socket _socket;
         private bool _disposed = false;
@@ -70,7 +71,7 @@ namespace ZebraPrinterLibrary.Services
             return response;
         }
 
-        public async Task<string> GetPrinterStatusAsync()
+        public async Task<string> GetStatusAsync()
         {
             string status = "Ok";
             string sHostStatus = await GetPrinterResponseAsync(Commands.getStatus);
@@ -202,8 +203,8 @@ namespace ZebraPrinterLibrary.Services
         {
             await SendCommandToPrinterAsync(Commands.continueCommand);
         }
-        
-        public async Task PausePrinterAsync()
+
+        public async Task PauseAsync()
         {
             await SendCommandToPrinterAsync(Commands.pauseCommand);
         }
@@ -215,5 +216,6 @@ namespace ZebraPrinterLibrary.Services
             _socket?.Close();
             _disposed = true;
         }
+
     }
 }
