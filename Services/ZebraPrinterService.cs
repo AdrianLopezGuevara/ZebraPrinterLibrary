@@ -6,6 +6,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using ZebraPrinterLibrary.Commands;
 using ZebraPrinterLibrary.Interfaces;
 
 namespace ZebraPrinterLibrary.Services
@@ -38,7 +39,7 @@ namespace ZebraPrinterLibrary.Services
             }
         }
 
-        public async Task SendCommandToPrinterAsync(string command)
+        public async Task SendCommandAsync(string command)
         {
             if (_disposed)
                 throw new ObjectDisposedException(nameof(ZebraPrinterService));
@@ -57,6 +58,7 @@ namespace ZebraPrinterLibrary.Services
             }
         }
 
+        #region GetFunctions
         public async Task<string> GetPrinterResponseAsync(string command)
         {
             if (_disposed)
@@ -84,7 +86,7 @@ namespace ZebraPrinterLibrary.Services
         public async Task<string> GetStatusAsync()
         {
             string status = "Ok";
-            string sHostStatus = await GetPrinterResponseAsync(Commands.system_error);
+            string sHostStatus = await GetPrinterResponseAsync(GetCommands.system_error);
             Console.WriteLine(sHostStatus);
             string pattern = @"\d+";
             MatchCollection matches = Regex.Matches(sHostStatus, pattern);
@@ -152,72 +154,73 @@ namespace ZebraPrinterLibrary.Services
 
         public async Task<string> GetLogsRFIDAsync()
         {
-            return await GetPrinterResponseAsync(Commands.getRIDFLogs);
+            return await GetPrinterResponseAsync(ZPLCommands.getRIDFLogs);
         }
 
         public async Task<string> GetSpeedAsync()
         {
-            return await GetPrinterResponseAsync(Commands.getSpeedCommand);
+            return await GetPrinterResponseAsync(GetCommands.getSpeedCommand);
         }
 
         public async Task<string> GetResolutionAsync()
         {
-            return await GetPrinterResponseAsync(Commands.getResolution);
+            return await GetPrinterResponseAsync(GetCommands.getResolution);
         }
 
         public async Task<string> GetLabelLengthAsync()
         {
-            return await GetPrinterResponseAsync(Commands.getLabelLengthCommand);
+            return await GetPrinterResponseAsync(GetCommands.getLabelLengthCommand);
         }
 
         public async Task<string> GetValidLabelsAsync()
         {
-            return await GetPrinterResponseAsync(Commands.getValidLabelsCommand);
+            return await GetPrinterResponseAsync(GetCommands.getValidLabelsCommand);
         }
 
         public async Task<string> GetVoidLabelsAsync()
         {
-            return await GetPrinterResponseAsync(Commands.getVoidLabelsCommand);
+            return await GetPrinterResponseAsync(GetCommands.getVoidLabelsCommand);
         }
+        #endregion
 
         public async Task ResetCounterAsync()
         {
-            await SendCommandToPrinterAsync(Commands.resetCounterCommand);
+            await SendCommandAsync(SetCommands.resetCounterCommand);
         }
 
         public async Task RestorePrinterAsync()
         {
-            await SendCommandToPrinterAsync(Commands.restorePrinterCommand);
+            await SendCommandAsync(ZPLCommands.restorePrinterCommand);
         }
 
         public async Task CalibrateRFIDAsync()
         {
-            await SendCommandToPrinterAsync(Commands.calibrateRFID);
+            await SendCommandAsync(SetCommands.calibrateRFID);
         }
 
         public async Task CalibrateLabelAsync()
         {
-            await SendCommandToPrinterAsync(Commands.calibarteLabel);
+            await SendCommandAsync(ZPLCommands.calibarteLabel);
         }
 
         public async Task DeleteJobsAsync()
         {
-            await SendCommandToPrinterAsync(Commands.deleteJobsCommand);
+            await SendCommandAsync(ZPLCommands.deleteJobsCommand);
         }
 
         public async Task CleanBufferAsync()
         {
-            await SendCommandToPrinterAsync(Commands.cleanBufferCommand);
+            await SendCommandAsync(SetCommands.cleanBufferCommand);
         }
 
         public async Task ContinueAsync()
         {
-            await SendCommandToPrinterAsync(Commands.continueCommand);
+            await SendCommandAsync(ZPLCommands.continueCommand);
         }
 
         public async Task PauseAsync()
         {
-            await SendCommandToPrinterAsync(Commands.pauseCommand);
+            await SendCommandAsync(ZPLCommands.pauseCommand);
         }
 
         public void Dispose()
