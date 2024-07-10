@@ -9,6 +9,7 @@ namespace ZebraPrinterLibrary.Interfaces
     public interface IZebraPrinterService
     {
         Task SendCommandToPrinterAsync(string command);
+        Task ConnectAsync(string ip, int port);
         Task<string> GetPrinterResponseAsync(string command);
         Task<string> GetStatusAsync();
         Task<string> GetLogsRFIDAsync();

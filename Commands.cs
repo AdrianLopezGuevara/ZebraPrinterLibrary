@@ -22,6 +22,7 @@ namespace ZebraPrinterLibrary
         public const string cleanBufferCommand = "! U1 setvar \"rfid.log.clear\" \"\"";
         public const string getRIDFLogs = "~HL\n";
         public const string continueCommand = "~PS\n";
+        public const string system_error = "! U1 getvar \"zpl.system_error\"\n";
         public const string getStatus = "! U1 getvar \"device.status\"\n";
     }
 }

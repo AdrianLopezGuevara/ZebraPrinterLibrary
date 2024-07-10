@@ -15,12 +15,22 @@ namespace ZebraPrinterLibrary.Services
         private Socket _socket;
         private bool _disposed = false;
 
-        public ZebraPrinterService(string ip, int port)
+        public ZebraPrinterService()
         {
             _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+        }
+
+        public async Task ConnectAsync(string ip, int port)
+        {
+            if (_disposed)
+                throw new ObjectDisposedException(nameof(ZebraPrinterService));
+
+            if (_socket.Connected)
+                throw new InvalidOperationException("Already connected to the printer.");
+
             try
             {
-                _socket.Connect(ip, port);
+                await _socket.ConnectAsync(ip, port);
             }
             catch (Exception ex)
             {
@@ -74,7 +84,8 @@ namespace ZebraPrinterLibrary.Services
         public async Task<string> GetStatusAsync()
         {
             string status = "Ok";
-            string sHostStatus = await GetPrinterResponseAsync(Commands.getStatus);
+            string sHostStatus = await GetPrinterResponseAsync(Commands.system_error);
+            Console.WriteLine(sHostStatus);
             string pattern = @"\d+";
             MatchCollection matches = Regex.Matches(sHostStatus, pattern);
             string statusResponse = string.Join("", matches);
