@@ -4,6 +4,12 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <PackageId>ZebraPrinterLibrary</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Adrian López Guevara</Authors>
+    <Description>Una librería para la comunicación con impresoras Zebra.</Description>
+    <PackageTags>Impresoras;Comunicación;Zebra</PackageTags>
+    <RepositoryUrl>https://github.com/AdrianLopezGuevara/ZebraPrinterLibrary.git</RepositoryUrl>
   </PropertyGroup>
 
 </Project>
