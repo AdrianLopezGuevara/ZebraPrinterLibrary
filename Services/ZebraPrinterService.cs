@@ -1,85 +1,88 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
+﻿using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using ZebraPrinterLibrary.Commands;
 using ZebraPrinterLibrary.Interfaces;
 
 namespace ZebraPrinterLibrary.Services
 {
-    public class ZebraPrinterService : IDisposable, IZebraPrinterService
+    public class ZebraPrinterService : IZebraPrinterService
     {
-        private Socket _socket;
-        private bool _disposed = false;
+        private string _printerIp = string.Empty;
+        private int _printerPort = 0;
 
         public ZebraPrinterService()
         {
-            _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
         }
 
-        public async Task ConnectAsync(string ip, int port)
+        public void Connect(string ip, int port)
         {
-            if (_disposed)
-                throw new ObjectDisposedException(nameof(ZebraPrinterService));
+            if (string.IsNullOrWhiteSpace(ip))
+            {
+                throw new ArgumentException("IP address cannot be null or empty.", nameof(ip));
+            }
 
-            if (_socket.Connected)
-                throw new InvalidOperationException("Already connected to the printer.");
+            if (!IPAddress.TryParse(ip, out _))
+            {
+                throw new ArgumentException("Invalid IP address format.", nameof(ip));
+            }
+
+            if (port <= 0 || port > 65535)
+            {
+                throw new ArgumentOutOfRangeException(nameof(port), "Port number must be between 1 and 65535.");
+            }
+
+            _printerIp = ip;
+            _printerPort = port;
+        }
+
+        public async Task SendCommandToPrinterAsync(string command)
+        {
+            if (string.IsNullOrEmpty(command))
+            {
+                throw new ArgumentException("Command cannot be null or empty.", nameof(command));
+            }
 
             try
             {
-                await _socket.ConnectAsync(ip, port);
+                using (Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
+                {
+                    await socket.ConnectAsync(_printerIp, _printerPort);
+                    await socket.SendAsync(Encoding.Latin1.GetBytes(command));
+                }
             }
-            catch (Exception ex)
-            {
-                throw new InvalidOperationException("Failed to connect to the printer.", ex);
-            }
-        }
-
-        public async Task SendCommandAsync(string command)
-        {
-            if (_disposed)
-                throw new ObjectDisposedException(nameof(ZebraPrinterService));
-
-            if (!_socket.Connected)
-                throw new InvalidOperationException("No connection to the printer.");
-
-            try
-            {
-                byte[] commandBytes = Encoding.UTF8.GetBytes(command);
-                await _socket.SendAsync(commandBytes, SocketFlags.None);
-            }
-            catch (IOException ex)
+            catch (SocketException ex)
             {
                 throw new InvalidOperationException("Failed to send command to the printer.", ex);
             }
         }
 
-        #region GetFunctions
         public async Task<string> GetPrinterResponseAsync(string command)
         {
-            if (_disposed)
-                throw new ObjectDisposedException(nameof(ZebraPrinterService));
-
-            if (!_socket.Connected)
-                throw new InvalidOperationException("No connection to the printer.");
+            if (string.IsNullOrEmpty(command))
+            {
+                throw new ArgumentException("Command cannot be null or empty.", nameof(command));
+            }
 
             string response = "";
             try
             {
-                byte[] commandBytes = Encoding.ASCII.GetBytes(command);
-                await _socket.SendAsync(commandBytes, SocketFlags.None);
-                byte[] bytes = new byte[3072];
-                int bytesRec = await _socket.ReceiveAsync(bytes, SocketFlags.None);
-                response = Encoding.ASCII.GetString(bytes, 0, bytesRec).Replace("\"", "");
+                using (Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
+                {
+                    await socket.ConnectAsync(_printerIp, _printerPort);
+                    await socket.SendAsync(Encoding.ASCII.GetBytes(command));
+
+                    byte[] buffer = new byte[3072];
+                    int bytesReceived = await socket.ReceiveAsync(buffer, SocketFlags.None);
+                    response = Encoding.ASCII.GetString(buffer, 0, bytesReceived).Replace("\"", "");
+                }
             }
-            catch (IOException ex)
+            catch (SocketException ex)
             {
                 throw new InvalidOperationException("Failed to get response from the printer.", ex);
             }
+
             return response;
         }
 
@@ -154,81 +157,122 @@ namespace ZebraPrinterLibrary.Services
 
         public async Task<string> GetLogsRFIDAsync()
         {
-            return await GetPrinterResponseAsync(ZPLCommands.getRIDFLogs);
+            string response = await GetPrinterResponseAsync(ZPLCommands.getRIDFLogs);
+
+            var charsToRemove = new[] { "\"", "<start>", "<end>", "\r", "\u0000", "\u0002", "\u0003" };
+
+            foreach (var c in charsToRemove)
+            {
+                response = response.Replace(c, "");
+            }
+
+            return response.Trim();
         }
 
-        public async Task<string> GetSpeedAsync()
+        public async Task<float> GetSpeedAsync()
         {
-            return await GetPrinterResponseAsync(GetCommands.getSpeedCommand);
+            string response = await GetPrinterResponseAsync(GetCommands.getSpeedCommand);
+            if (float.TryParse(response, out float speed))
+            {
+                return speed;
+            }
+            else
+            {
+                throw new InvalidDataException("La respuesta del impresor no es un valor de velocidad válido.");
+            }
         }
 
-        public async Task<string> GetResolutionAsync()
+        public async Task<float> GetResolutionAsync()
         {
-            return await GetPrinterResponseAsync(GetCommands.getResolution);
+            string response = await GetPrinterResponseAsync(GetCommands.getResolution);
+            if (float.TryParse(response, out float resolution))
+            {
+                return resolution;
+            }
+            else
+            {
+                throw new InvalidDataException("La respuesta del impresor no es un valor de resolución válido.");
+            }
         }
 
-        public async Task<string> GetLabelLengthAsync()
+        public async Task<float> GetLabelLengthAsync()
         {
-            return await GetPrinterResponseAsync(GetCommands.getLabelLengthCommand);
+            string response = await GetPrinterResponseAsync(GetCommands.getLabelLengthCommand);
+
+            if (float.TryParse(response, out float labelLength))
+            {
+                return labelLength;
+            }
+            else
+            {
+                throw new InvalidDataException("La respuesta del impresor no es un valor de longitud de etiqueta válido.");
+            }
         }
 
-        public async Task<string> GetValidLabelsAsync()
+        public async Task<int> GetValidLabelsAsync()
         {
-            return await GetPrinterResponseAsync(GetCommands.getValidLabelsCommand);
+            string response = await GetPrinterResponseAsync(GetCommands.getValidLabelsCommand);
+            if (int.TryParse(response, out int validLabels))
+            {
+                return validLabels;
+            }
+            else
+            {
+                throw new InvalidDataException("La respuesta del impresor no es un valor de etiquetas válidas válido.");
+            }
         }
 
-        public async Task<string> GetVoidLabelsAsync()
+        public async Task<int> GetVoidLabelsAsync()
         {
-            return await GetPrinterResponseAsync(GetCommands.getVoidLabelsCommand);
+            string response = await GetPrinterResponseAsync(GetCommands.getVoidLabelsCommand);
+            if (int.TryParse(response, out int voidLabels))
+            {
+                return voidLabels;
+            }
+            else
+            {
+                throw new InvalidDataException("La respuesta del impresor no es un valor de etiquetas inválidas válido.");
+            }
         }
-        #endregion
 
         public async Task ResetCounterAsync()
         {
-            await SendCommandAsync(SetCommands.resetCounterCommand);
+            await SendCommandToPrinterAsync(SetCommands.resetCounterCommand);
         }
 
         public async Task RestorePrinterAsync()
         {
-            await SendCommandAsync(ZPLCommands.restorePrinterCommand);
+            await SendCommandToPrinterAsync(ZPLCommands.restorePrinterCommand);
         }
 
         public async Task CalibrateRFIDAsync()
         {
-            await SendCommandAsync(SetCommands.calibrateRFID);
+            await SendCommandToPrinterAsync(SetCommands.calibrateRFID);
         }
 
         public async Task CalibrateLabelAsync()
         {
-            await SendCommandAsync(ZPLCommands.calibarteLabel);
+            await SendCommandToPrinterAsync(ZPLCommands.calibarteLabel);
         }
 
         public async Task DeleteJobsAsync()
         {
-            await SendCommandAsync(ZPLCommands.deleteJobsCommand);
+            await SendCommandToPrinterAsync(ZPLCommands.deleteJobsCommand);
         }
 
         public async Task CleanBufferAsync()
         {
-            await SendCommandAsync(SetCommands.cleanBufferCommand);
+            await SendCommandToPrinterAsync(SetCommands.cleanBufferCommand);
         }
 
         public async Task ContinueAsync()
         {
-            await SendCommandAsync(ZPLCommands.continueCommand);
+            await SendCommandToPrinterAsync(ZPLCommands.continueCommand);
         }
 
         public async Task PauseAsync()
         {
-            await SendCommandAsync(ZPLCommands.pauseCommand);
-        }
-
-        public void Dispose()
-        {
-            if (_disposed) return;
-
-            _socket?.Close();
-            _disposed = true;
+            await SendCommandToPrinterAsync(ZPLCommands.pauseCommand);
         }
 
     }
